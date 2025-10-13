@@ -1,0 +1,36 @@
+{
+  "name": "reporter-mcp",
+  "version": "1.0.0",
+  "description": "A Model Context Protocol (MCP) server for Recall Competitions API integration",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": "./dist/index.js",
+  "scripts": {
+    "build": "tsc && shx chmod +x dist/*.js",
+    "prepare": "npm run build",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "competitions",
+    "recall",
+    "api",
+    "trading",
+    "perpetual-futures"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.2",
+    "shx": "^0.4.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}
