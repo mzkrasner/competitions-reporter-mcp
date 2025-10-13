@@ -1,0 +1,25 @@
+# Source files (only ship compiled JS)
+src/
+*.ts
+!dist/**/*.d.ts
+
+# Config files
+tsconfig.json
+.env
+.env.*
+
+# Development files
+.gitignore
+.git/
+node_modules/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
