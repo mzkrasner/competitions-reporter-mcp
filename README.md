@@ -240,7 +240,7 @@ Using npx:
       "command": "npx",
       "args": [
         "-y",
-        "github:mzkrasner/reporter-mcp"
+        "github:mzkrasner/competitions-reporter-mcp"
       ],
       "env": {
         "COMPETITIONS_API_KEY": "your_api_key_here",
