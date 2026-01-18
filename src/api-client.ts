@@ -1,14 +1,28 @@
 /**
  * API Client for Recall Competitions
+ * Synced with js-recall/packages/test-utils/src/api-client.ts
  */
 
 import {
   CompetitionDetailResponse,
   CompetitionAgentsResponse,
+  CompetitionsListResponse,
+  CompetitionRulesResponse,
+  CompetitionTimelineResponse,
   TradeHistoryResponse,
   CompetitionAllPerpsPositionsResponse,
+  AgentPerpsPositionsResponse,
+  GlobalLeaderboardResponse,
+  AgentsListResponse,
+  PublicAgentResponse,
+  AgentCompetitionsResponse,
+  CompetitionPartnersResponse,
   PaginationParams,
   PerpsPositionFilterParams,
+  CompetitionsFilterParams,
+  AgentsFilterParams,
+  LeaderboardFilterParams,
+  CompetitionType,
 } from './types.js';
 
 const API_BASE_URL = 'https://api.competitions.recall.network';
@@ -58,8 +72,39 @@ export class CompetitionsApiClient {
     return response.json();
   }
 
+  // ============================================
+  // Competition Endpoints
+  // ============================================
+
   /**
-   * Get competition details
+   * List competitions with optional filtering
+   */
+  async listCompetitions(
+    params?: CompetitionsFilterParams
+  ): Promise<CompetitionsListResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.status !== undefined) {
+      queryParams.append('status', params.status);
+    }
+    if (params?.sort !== undefined) {
+      queryParams.append('sort', params.sort);
+    }
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/competitions${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<CompetitionsListResponse>(url);
+  }
+
+  /**
+   * Get competition details by ID
    */
   async getCompetitionDetails(competitionId: string): Promise<CompetitionDetailResponse> {
     return this.request<CompetitionDetailResponse>(
@@ -68,11 +113,20 @@ export class CompetitionsApiClient {
   }
 
   /**
-   * Get agents participating in a competition
+   * Get competition rules
+   */
+  async getCompetitionRules(competitionId: string): Promise<CompetitionRulesResponse> {
+    return this.request<CompetitionRulesResponse>(
+      `/api/competitions/${competitionId}/rules`
+    );
+  }
+
+  /**
+   * Get agents participating in a competition (leaderboard)
    */
   async getCompetitionAgents(
     competitionId: string,
-    params?: PaginationParams & { includeInactive?: boolean }
+    params?: PaginationParams & { includeInactive?: boolean; filter?: string; sort?: string }
   ): Promise<CompetitionAgentsResponse> {
     const queryParams = new URLSearchParams();
     
@@ -85,11 +139,36 @@ export class CompetitionsApiClient {
     if (params?.includeInactive !== undefined) {
       queryParams.append('includeInactive', params.includeInactive.toString());
     }
+    if (params?.filter !== undefined) {
+      queryParams.append('filter', params.filter);
+    }
+    if (params?.sort !== undefined) {
+      queryParams.append('sort', params.sort);
+    }
 
     const queryString = queryParams.toString();
     const url = `/api/competitions/${competitionId}/agents${queryString ? `?${queryString}` : ''}`;
     
     return this.request<CompetitionAgentsResponse>(url);
+  }
+
+  /**
+   * Get competition timeline (portfolio value history)
+   */
+  async getCompetitionTimeline(
+    competitionId: string,
+    bucket?: number
+  ): Promise<CompetitionTimelineResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (bucket !== undefined) {
+      queryParams.append('bucket', bucket.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/competitions/${competitionId}/timeline${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<CompetitionTimelineResponse>(url);
   }
 
   /**
@@ -110,6 +189,29 @@ export class CompetitionsApiClient {
 
     const queryString = queryParams.toString();
     const url = `/api/competitions/${competitionId}/trades${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<TradeHistoryResponse>(url);
+  }
+
+  /**
+   * Get trades for a specific agent in a competition
+   */
+  async getAgentTradesInCompetition(
+    competitionId: string,
+    agentId: string,
+    params?: PaginationParams
+  ): Promise<TradeHistoryResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/competitions/${competitionId}/agents/${agentId}/trades${queryString ? `?${queryString}` : ''}`;
     
     return this.request<TradeHistoryResponse>(url);
   }
@@ -138,6 +240,130 @@ export class CompetitionsApiClient {
     
     return this.request<CompetitionAllPerpsPositionsResponse>(url);
   }
+
+  /**
+   * Get perps positions for a specific agent in a competition
+   */
+  async getAgentPerpsPositionsInCompetition(
+    competitionId: string,
+    agentId: string
+  ): Promise<AgentPerpsPositionsResponse> {
+    return this.request<AgentPerpsPositionsResponse>(
+      `/api/competitions/${competitionId}/agents/${agentId}/perps/positions`
+    );
+  }
+
+  /**
+   * Get competition partners/sponsors
+   */
+  async getCompetitionPartners(competitionId: string): Promise<CompetitionPartnersResponse> {
+    return this.request<CompetitionPartnersResponse>(
+      `/api/competitions/${competitionId}/partners`
+    );
+  }
+
+  // ============================================
+  // Global Leaderboard Endpoints
+  // ============================================
+
+  /**
+   * Get global leaderboard (cross-competition rankings)
+   */
+  async getGlobalLeaderboard(
+    params?: LeaderboardFilterParams
+  ): Promise<GlobalLeaderboardResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+    if (params?.type !== undefined) {
+      queryParams.append('type', params.type);
+    }
+    if (params?.arenaId !== undefined) {
+      queryParams.append('arenaId', params.arenaId);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/leaderboard${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<GlobalLeaderboardResponse>(url);
+  }
+
+  // ============================================
+  // Agent Endpoints
+  // ============================================
+
+  /**
+   * List all agents
+   */
+  async listAgents(
+    params?: AgentsFilterParams
+  ): Promise<AgentsListResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+    if (params?.filter !== undefined) {
+      queryParams.append('filter', params.filter);
+    }
+    if (params?.sort !== undefined) {
+      queryParams.append('sort', params.sort);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/agents${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<AgentsListResponse>(url);
+  }
+
+  /**
+   * Get public agent profile
+   */
+  async getAgent(agentId: string): Promise<PublicAgentResponse> {
+    return this.request<PublicAgentResponse>(
+      `/api/agents/${agentId}`
+    );
+  }
+
+  /**
+   * Get competitions an agent has participated in
+   */
+  async getAgentCompetitions(
+    agentId: string,
+    params?: CompetitionsFilterParams
+  ): Promise<AgentCompetitionsResponse> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.status !== undefined) {
+      queryParams.append('status', params.status);
+    }
+    if (params?.sort !== undefined) {
+      queryParams.append('sort', params.sort);
+    }
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.offset !== undefined) {
+      queryParams.append('offset', params.offset.toString());
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/api/agents/${agentId}/competitions${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<AgentCompetitionsResponse>(url);
+  }
+
+  // ============================================
+  // Pagination Helpers
+  // ============================================
 
   /**
    * Fetch all items with pagination support
@@ -170,6 +396,21 @@ export class CompetitionsApiClient {
   async getAllCompetitionTrades(competitionId: string): Promise<TradeHistoryResponse['trades']> {
     const items = await this.fetchAllWithPagination<TradeHistoryResponse>(
       (limit, offset) => this.getCompetitionTrades(competitionId, { limit, offset }),
+      (response) => response.trades
+    );
+    
+    return items as TradeHistoryResponse['trades'];
+  }
+
+  /**
+   * Get ALL trades for a specific agent in a competition (handles pagination automatically)
+   */
+  async getAllAgentTradesInCompetition(
+    competitionId: string,
+    agentId: string
+  ): Promise<TradeHistoryResponse['trades']> {
+    const items = await this.fetchAllWithPagination<TradeHistoryResponse>(
+      (limit, offset) => this.getAgentTradesInCompetition(competitionId, agentId, { limit, offset }),
       (response) => response.trades
     );
     

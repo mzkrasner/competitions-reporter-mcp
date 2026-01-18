@@ -12,18 +12,19 @@ import {
 import { logger, validateEnv } from './config.js';
 import { competitionTools } from './tools/index.js';
 import { CompetitionsApiClient } from './api-client.js';
+import type { CompetitionType, CompetitionStatus } from './types.js';
 
 // Create the MCP server
 const server = new McpServer(
   {
-    name: 'competitions-mcp',
-    version: '0.1.0',
+    name: 'reporter-mcp',
+    version: '1.0.0',
   },
   {
     capabilities: {
-      tools: {}, // We support tools
-      resources: {}, // Empty resources
-      prompts: {}, // Empty prompts
+      tools: {},
+      resources: {},
+      prompts: {},
     },
   },
 );
@@ -70,12 +71,58 @@ const setRequestHandlerforToolRequestSchema = async (request: CallToolRequest) =
     logger.info(`Received tool call: ${toolName}`);
     logger.debug(`Arguments: ${JSON.stringify(args)}`);
 
+    // ============================================
+    // Competition Tools
+    // ============================================
+
+    // List Competitions
+    if (toolName === 'listCompetitions') {
+      const status = args.status as CompetitionStatus | 'all' | undefined;
+      const sort = args.sort as string | undefined;
+      const limit = args.limit as number | undefined;
+      const offset = args.offset as number | undefined;
+      
+      logger.info(`Listing competitions with status: ${status || 'active'}`);
+      const response = await apiClient.listCompetitions({
+        status,
+        sort,
+        limit,
+        offset,
+      });
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
     // Get Competition Details
-    if (toolName === 'getCompetitionDetails') {
+    else if (toolName === 'getCompetitionDetails') {
       const competitionId = args.competitionId as string;
       
       logger.info(`Getting competition details for ID: ${competitionId}`);
       const response = await apiClient.getCompetitionDetails(competitionId);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Get Competition Rules
+    else if (toolName === 'getCompetitionRules') {
+      const competitionId = args.competitionId as string;
+      
+      logger.info(`Getting competition rules for ID: ${competitionId}`);
+      const response = await apiClient.getCompetitionRules(competitionId);
       
       return {
         content: [
@@ -93,13 +140,35 @@ const setRequestHandlerforToolRequestSchema = async (request: CallToolRequest) =
       const limit = args.limit as number | undefined;
       const offset = args.offset as number | undefined;
       const includeInactive = args.includeInactive as boolean | undefined;
+      const filter = args.filter as string | undefined;
+      const sort = args.sort as string | undefined;
       
       logger.info(`Getting agents for competition: ${competitionId}`);
       const response = await apiClient.getCompetitionAgents(competitionId, {
         limit,
         offset,
         includeInactive,
+        filter,
+        sort,
       });
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Get Competition Timeline
+    else if (toolName === 'getCompetitionTimeline') {
+      const competitionId = args.competitionId as string;
+      const bucket = args.bucket as number | undefined;
+      
+      logger.info(`Getting timeline for competition: ${competitionId}`);
+      const response = await apiClient.getCompetitionTimeline(competitionId, bucket);
       
       return {
         content: [
@@ -139,6 +208,50 @@ const setRequestHandlerforToolRequestSchema = async (request: CallToolRequest) =
         };
       } else {
         const response = await apiClient.getCompetitionTrades(competitionId, {
+          limit,
+          offset,
+        });
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(response, null, 2),
+            },
+          ],
+        };
+      }
+    }
+
+    // Get Agent Trades in Competition
+    else if (toolName === 'getAgentTradesInCompetition') {
+      const competitionId = args.competitionId as string;
+      const agentId = args.agentId as string;
+      const limit = args.limit as number | undefined;
+      const offset = args.offset as number | undefined;
+      const fetchAll = args.fetchAll as boolean | undefined;
+      
+      logger.info(`Getting trades for agent ${agentId} in competition: ${competitionId}`);
+      
+      if (fetchAll) {
+        logger.info('Fetching ALL agent trades (this may take a while)...');
+        const trades = await apiClient.getAllAgentTradesInCompetition(competitionId, agentId);
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                trades,
+                total: trades.length,
+                message: `Fetched all ${trades.length} trades for agent ${agentId}`,
+              }, null, 2),
+            },
+          ],
+        };
+      } else {
+        const response = await apiClient.getAgentTradesInCompetition(competitionId, agentId, {
           limit,
           offset,
         });
@@ -197,6 +310,142 @@ const setRequestHandlerforToolRequestSchema = async (request: CallToolRequest) =
           ],
         };
       }
+    }
+
+    // Get Agent Perps Positions in Competition
+    else if (toolName === 'getAgentPerpsPositionsInCompetition') {
+      const competitionId = args.competitionId as string;
+      const agentId = args.agentId as string;
+      
+      logger.info(`Getting perps positions for agent ${agentId} in competition: ${competitionId}`);
+      const response = await apiClient.getAgentPerpsPositionsInCompetition(competitionId, agentId);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Get Competition Partners
+    else if (toolName === 'getCompetitionPartners') {
+      const competitionId = args.competitionId as string;
+      
+      logger.info(`Getting partners for competition: ${competitionId}`);
+      const response = await apiClient.getCompetitionPartners(competitionId);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // ============================================
+    // Global Leaderboard Tools
+    // ============================================
+
+    // Get Global Leaderboard
+    else if (toolName === 'getGlobalLeaderboard') {
+      const type = args.type as CompetitionType | undefined;
+      const arenaId = args.arenaId as string | undefined;
+      const limit = args.limit as number | undefined;
+      const offset = args.offset as number | undefined;
+      
+      logger.info(`Getting global leaderboard${type ? ` for type: ${type}` : ''}`);
+      const response = await apiClient.getGlobalLeaderboard({
+        type,
+        arenaId,
+        limit,
+        offset,
+      });
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // ============================================
+    // Agent Tools
+    // ============================================
+
+    // List Agents
+    else if (toolName === 'listAgents') {
+      const filter = args.filter as string | undefined;
+      const sort = args.sort as string | undefined;
+      const limit = args.limit as number | undefined;
+      const offset = args.offset as number | undefined;
+      
+      logger.info('Listing agents');
+      const response = await apiClient.listAgents({
+        filter,
+        sort,
+        limit,
+        offset,
+      });
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Get Agent
+    else if (toolName === 'getAgent') {
+      const agentId = args.agentId as string;
+      
+      logger.info(`Getting agent: ${agentId}`);
+      const response = await apiClient.getAgent(agentId);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Get Agent Competitions
+    else if (toolName === 'getAgentCompetitions') {
+      const agentId = args.agentId as string;
+      const status = args.status as CompetitionStatus | 'all' | undefined;
+      const sort = args.sort as string | undefined;
+      const limit = args.limit as number | undefined;
+      const offset = args.offset as number | undefined;
+      
+      logger.info(`Getting competitions for agent: ${agentId}`);
+      const response = await apiClient.getAgentCompetitions(agentId, {
+        status,
+        sort,
+        limit,
+        offset,
+      });
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2),
+          },
+        ],
+      };
     }
     
     // Unknown tool
@@ -262,12 +511,12 @@ async function runServer() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    logger.info('Competitions MCP Server running on stdio');
+    logger.info('Reporter MCP Server running on stdio');
 
     // Handle cleanup on shutdown
     const cleanup = async () => {
       try {
-        logger.info('Shutting down Competitions MCP Server...');
+        logger.info('Shutting down Reporter MCP Server...');
         process.exit(0);
       } catch (error) {
         logger.error(`Error during shutdown: ${error}`);

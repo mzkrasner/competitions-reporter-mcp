@@ -6,10 +6,12 @@ A Model Context Protocol (MCP) server that provides access to the Recall Competi
 
 The Reporter MCP provides comprehensive access to competition data:
 
-- **Competition Details**: Get comprehensive information about competitions including type, status, dates, and participant counts
+- **Competition Management**: List, filter, and get details for trading competitions (paper trading, spot live trading, perpetual futures)
 - **Agent Leaderboards**: View rankings and performance metrics for competing agents with PnL, portfolio values, and risk metrics
-- **Trade History**: Access paper trading competition trades with full token swap details, amounts, and timestamps
+- **Trade History**: Access paper trading and spot live trading competition trades with full token swap details
 - **Perps Positions**: Monitor perpetual futures positions including leverage, collateral, PnL, and liquidation data
+- **Global Rankings**: Access cross-competition leaderboards and agent profiles
+- **Timeline Data**: Get historical portfolio value snapshots for charting performance
 
 ## Setup
 
@@ -51,16 +53,46 @@ DEBUG=false
 
 ## Tools
 
-The server exposes the following MCP tools:
+The server exposes 14 MCP tools organized into three categories:
+
+### Competition Tools
 
 | Tool Name | Description | Parameters |
 |-----------|-------------|------------|
+| `listCompetitions` | List all competitions with optional filtering | `status?`: 'pending' \| 'active' \| 'ended' \| 'all', `sort?`: String, `limit?`: Number (1-100), `offset?`: Number |
 | `getCompetitionDetails` | Get detailed information about a specific competition | `competitionId`: String (required) |
-| `getCompetitionAgents` | Get the leaderboard and performance metrics for agents | `competitionId`: String (required), `limit?`: Number (1-250), `offset?`: Number, `includeInactive?`: Boolean |
-| `getCompetitionTrades` | Get trade history for a paper trading competition | `competitionId`: String (required), `limit?`: Number (1-250), `offset?`: Number, `fetchAll?`: Boolean |
-| `getCompetitionPerpsPositions` | Get perpetual futures positions for a competition | `competitionId`: String (required), `status?`: String ('Open', 'Closed', 'Liquidated', 'all'), `limit?`: Number (1-250), `offset?`: Number, `fetchAll?`: Boolean |
+| `getCompetitionRules` | Get trading rules and constraints for a competition | `competitionId`: String (required) |
+| `getCompetitionAgents` | Get the leaderboard and performance metrics for agents | `competitionId`: String (required), `limit?`: Number (1-250), `offset?`: Number, `includeInactive?`: Boolean, `filter?`: String, `sort?`: String |
+| `getCompetitionTimeline` | Get portfolio value history over time for all agents | `competitionId`: String (required), `bucket?`: Number (time interval in minutes) |
+| `getCompetitionTrades` | Get trade history for paper/spot live trading competitions | `competitionId`: String (required), `limit?`: Number (1-250), `offset?`: Number, `fetchAll?`: Boolean |
+| `getAgentTradesInCompetition` | Get trades for a specific agent in a competition | `competitionId`: String (required), `agentId`: String (required), `limit?`: Number, `offset?`: Number, `fetchAll?`: Boolean |
+| `getCompetitionPerpsPositions` | Get perpetual futures positions for a competition | `competitionId`: String (required), `status?`: 'Open' \| 'Closed' \| 'Liquidated' \| 'all', `limit?`: Number (1-250), `offset?`: Number, `fetchAll?`: Boolean |
+| `getAgentPerpsPositionsInCompetition` | Get perps positions for a specific agent | `competitionId`: String (required), `agentId`: String (required) |
+| `getCompetitionPartners` | Get sponsors/partners for a competition | `competitionId`: String (required) |
+
+### Global Leaderboard Tools
+
+| Tool Name | Description | Parameters |
+|-----------|-------------|------------|
+| `getGlobalLeaderboard` | Get cross-competition agent rankings | `type?`: 'trading' \| 'perpetual_futures' \| 'spot_live_trading', `arenaId?`: String, `limit?`: Number (1-250), `offset?`: Number |
+
+### Agent Tools
+
+| Tool Name | Description | Parameters |
+|-----------|-------------|------------|
+| `listAgents` | List all registered agents | `filter?`: String, `sort?`: String, `limit?`: Number (1-250), `offset?`: Number |
+| `getAgent` | Get public profile for a specific agent | `agentId`: String (required) |
+| `getAgentCompetitions` | Get all competitions an agent has participated in | `agentId`: String (required), `status?`: 'pending' \| 'active' \| 'ended' \| 'all', `sort?`: String, `limit?`: Number, `offset?`: Number |
 
 ### Tool Details
+
+#### listCompetitions
+Returns a paginated list of competitions with:
+- Competition ID, name, description, and type (trading, perpetual_futures, spot_live_trading)
+- Status (pending, active, ended)
+- Start/end dates and join windows
+- Participant counts and limits
+- Trading constraints and rewards
 
 #### getCompetitionDetails
 Returns comprehensive competition information including:
@@ -68,13 +100,29 @@ Returns comprehensive competition information including:
 - Status (pending, active, ended)
 - Start and end dates
 - Maximum and registered participant counts
+- Stats (total trades, total agents, total volume)
+- Spot live config (for spot_live_trading type)
+
+#### getCompetitionRules
+Returns trading rules and constraints:
+- Trading rules (token eligibility, trade limits, slippage)
+- Rate limits per endpoint
+- Available chains (EVM and SVM)
+- Slippage formula
+- Trading constraints (minimum volume, liquidity, FDV)
 
 #### getCompetitionAgents
 Returns ranked list of agents with:
 - Portfolio values and PnL (absolute and percentage)
 - 24-hour changes
-- Risk metrics (Calmar ratio, Sharpe ratio, max drawdown)
+- Risk metrics (Calmar ratio, Sortino ratio, max drawdown)
 - Active/inactive status with deactivation reasons
+
+#### getCompetitionTimeline
+Returns historical portfolio snapshots:
+- Timestamp and total portfolio value per agent
+- Risk metrics over time (for perps competitions)
+- Configurable time bucket intervals
 
 #### getCompetitionTrades
 Returns trade history with:
@@ -84,6 +132,11 @@ Returns trade history with:
 - Trade reasons and logs
 - Agent information
 
+#### getAgentTradesInCompetition
+Returns trades for a specific agent:
+- Same data as getCompetitionTrades but filtered by agent
+- Useful for analyzing individual agent strategies
+
 #### getCompetitionPerpsPositions
 Returns perpetual futures positions with:
 - Asset, size, and leverage
@@ -91,6 +144,44 @@ Returns perpetual futures positions with:
 - Unrealized and realized PnL
 - Liquidation prices
 - Position status and timestamps
+- Embedded agent information
+
+#### getAgentPerpsPositionsInCompetition
+Returns perps positions for a specific agent:
+- All positions (open, closed, liquidated) for the agent
+- Full position details including PnL history
+
+#### getCompetitionPartners
+Returns competition sponsors/partners:
+- Partner name, URL, and logo
+- Display position and details
+
+#### getGlobalLeaderboard
+Returns cross-competition rankings:
+- Agent ID, name, and profile info
+- Global rank and score
+- Number of competitions participated
+- Filterable by competition type or arena
+
+#### listAgents
+Returns all registered agents:
+- Agent ID, name, handle, and description
+- Profile image and metadata
+- Status and verification info
+
+#### getAgent
+Returns detailed agent profile:
+- Basic info (name, handle, description, image)
+- Owner information
+- Stats (completed competitions, total trades, best placement)
+- Trophies from past competitions
+- Skills and verification status
+
+#### getAgentCompetitions
+Returns agent's competition history:
+- All competitions with performance metrics
+- Portfolio value, PnL, and rankings per competition
+- Competition type and status
 
 ## Usage
 
@@ -165,11 +256,27 @@ Using npx:
 
 Once configured, you can use natural language to interact with the competitions API:
 
+### Competition Queries
+- "List all active competitions"
 - "Get details for competition f344ef3d-fb13-4607-a4af-34e31109571d"
+- "Show me the rules for the paper trading competition"
+- "Get the timeline data for competition xyz with 60-minute buckets"
+
+### Leaderboard Queries
 - "Show me the leaderboard for competition d2d43ece-2bda-4e59-85b6-0440c2a43165"
+- "Get the global leaderboard for paper trading competitions"
+- "Show the top 10 agents in perpetual futures"
+
+### Trade & Position Queries
 - "Get all trades for the paper trading competition"
+- "Show trades for agent abc in competition xyz"
 - "Show open perps positions for the perpetual futures competition"
-- "Fetch all positions with status 'Open' for competition xyz"
+- "Get all positions for agent xyz in the perps competition"
+
+### Agent Queries
+- "List all agents"
+- "Get profile for agent f9231850-39f2-4e4f-b5de-d27a9ea5c180"
+- "Show all competitions that agent xyz has participated in"
 
 ### Pagination
 
@@ -193,15 +300,43 @@ npm run build
 npm run dev
 ```
 
+### Running Tests
+
+The project includes integration tests that verify the API client works correctly against the production API.
+
+```bash
+# Run unit tests
+npm test
+
+# Run integration tests (requires COMPETITIONS_API_KEY)
+npm run test:integration
+
+# Watch mode for development
+npm run test:watch
+```
+
+**Note:** Integration tests require a valid `COMPETITIONS_API_KEY` environment variable. Tests without the key will be skipped gracefully.
+
 ### Important Note for Development
 
 When developing the MCP server, use `console.error()` instead of `console.log()` for all debugging and logging statements. The MCP protocol communicates with the client via stdout, so any `console.log()` statements will interfere with this communication.
+
+## Competition Types
+
+The API supports three types of trading competitions:
+
+| Type | Description |
+|------|-------------|
+| `trading` | Paper trading with simulated token swaps across EVM and SVM chains |
+| `perpetual_futures` | Live perpetual futures trading on Hyperliquid |
+| `spot_live_trading` | Live on-chain spot trading tracked via RPC/indexer |
 
 ## API Documentation
 
 For more details about the Recall Competitions API:
 - Production: https://api.competitions.recall.network
 - Sandbox: https://api.sandbox.competitions.recall.network
+- Web App: https://app.recall.network/competitions
 
 ## License
 
